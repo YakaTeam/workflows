@@ -1,0 +1,64 @@
+name: Check for Updates (Daily)
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: 🌏 Check for updates
+    runs-on: ubuntu-latest
+    outputs:
+      should_build: ${{ steps.check-updates.outputs.has_changes }}
+    steps:
+      - name: Check for commits in last 24 hours
+        id: check-updates
+        run: |
+          since=$(date -u -d "24 hours ago" +"%Y-%m-%dT%H:%M:%SZ")
+          echo "🔍 Checking commits since: $since"
+          response=$(curl -s -w "\n%{http_code}" \
+            "https://api.github.com/repos/YakaTeam/kotatsu-parsers/commits?since=$since&per_page=100")
+          
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+          
+          echo "📡 HTTP Status: $http_code"
+          
+          if [ "$http_code" != "200" ]; then
+            echo "❌ API request failed with status $http_code"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          is_array=$(echo "$body" | jq -e 'type == "array"' || echo "false")
+          
+          if [ "$is_array" != "true" ]; then
+            echo "❌ Response is not an array"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          commit_count=$(echo "$body" | jq 'length')
+          
+          echo "📊 Found $commit_count commit(s) in the last 24 hours"
+          
+          if [ "$commit_count" -gt "0" ]; then
+            echo "📝 Recent commits:"
+            echo "$body" | jq -r '.[] | "  - \(.commit.message | split("\n")[0]) (by \(.commit.author.name))"' | head -5
+          fi
+          
+          if [ "$commit_count" -gt "0" ]; then
+            echo "✅ Changes detected - will trigger build"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "ℹ️ No changes detected - skipping build"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          fi
+
+  build_release:
+    name: 🚀 Trigger Yukimi builds
+    needs: check
+    if: needs.check.outputs.should_build == 'true'
+    uses: ./.github/workflows/build.yml
+    secrets: inherit

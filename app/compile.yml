@@ -1,0 +1,35 @@
+name: Compile Yukimi kotlin code
+
+on:
+  push:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull upstream 🌏
+        uses: actions/checkout@v4
+        with:
+          repository: YakaTeam/app
+          ref: base
+          fetch-depth: 0
+
+      - name: Set up JDK 🚀
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Gradle 🚀
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Setup Android SDK 🚀
+        uses: android-actions/setup-android@v3
+
+      - name: Check compile Kotlin code 💻
+        run: |
+          chmod a+x gradlew
+          ./gradlew compileDebugKotlin

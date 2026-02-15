@@ -1,0 +1,50 @@
+name: Release Yukimi Artifact
+
+on:
+  workflow_call:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository 🚀
+        uses: actions/checkout@v5
+        with:
+          clean: true
+          fetch-depth: 0
+
+      - name: Fetch APK artifact 📥
+        uses: actions/download-artifact@v4
+        with:
+          name: release-apk
+
+      - name: Prepare release APK + tag info 📦
+        id: meta
+        run: |
+          echo "tag=$(date +'%Y%m%d')" >> $GITHUB_OUTPUT
+          echo "date_fmt=$(date +'%Y/%m/%d')" >> $GITHUB_OUTPUT
+          mv app-nightly.apk release.apk
+
+      - name: Get latest changes 📑
+        id: changelog
+        run: |
+          python3 ./.github/assets/commit.py
+          
+          CHANGELOG=$(cat commits.txt)
+          echo "content<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Upload artifacts 🌐
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: YakaTeam/artifacts
+          tag_name: nightly-${{ steps.meta.outputs.tag }}
+          name: "Daily Artifact (${{ steps.meta.outputs.tag }})"
+          body: |
+            Automated Yukimi artifact, generated on ${{ steps.meta.outputs.date_fmt }}
+            
+            ${{ steps.changelog.outputs.content }}
+          files: release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.ARTIFACT_REPO_TOKEN }}

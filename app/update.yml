@@ -1,0 +1,38 @@
+name: Update README
+
+on:
+  workflow_call:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone artifacts repo 📥
+        run: |
+          git clone https://github.com/YakaTeam/artifacts.git artifacts
+          cd artifacts
+          git config user.name "YakaBot"
+          git config user.email "yakateam@proton.me"
+
+      - name: Update README 📝
+        run: |
+          cd artifacts
+          DATE=$(date +'%Y%m%d')
+          NEW_DIV="<div align=\"center\">\n\n"
+          
+          for (( i=0; i<${#DATE}; i++ )); do
+            DIGIT="${DATE:$i:1}"
+            NEW_DIV="${NEW_DIV}[![Download](https://rule34.xxx/counter/${DIGIT}.gif)](https://github.com/YakaTeam/artifacts/releases/latest) "
+          done
+          
+          NEW_DIV="${NEW_DIV}\n\n</div>"
+          sed -i -e "/<div align=\"center\">/,/<\/div>/c ${NEW_DIV}" README.md
+
+      - name: Commit & Push changes 🚀
+        run: |
+          cd artifacts
+          git add README.md
+          git commit -m "Bump build number to $(date +'%Y%m%d')"
+          git push https://x-access-token:${{ secrets.ARTIFACT_REPO_TOKEN }}@github.com/YakaTeam/artifacts.git HEAD:main
+        continue-on-error: true
